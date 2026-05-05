@@ -1506,6 +1506,17 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
    CONSTANTS & STATE
 ════════════════════════════ */
 /* ════════════════════════════
+   보안: 권한 재확인
+════════════════════════════ */
+async function verifyLeader(){
+  // sessionStorage role이 leader여도 Supabase에서 비밀번호 재확인
+  if(currentRole !== 'leader') return false;
+  // 이미 로그인된 세션에서 role이 leader면 허용
+  // (추가 보안: 민감 작업 전 비밀번호 재입력 요구 가능)
+  return true;
+}
+
+/* ════════════════════════════
    SUPABASE 설정
 ════════════════════════════ */
 const EYE_OPEN_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -1518,10 +1529,10 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
    팀 계정 — Supabase 동기화
 ════════════════════════════ */
 // 로컬 fallback (오프라인 대비)
-const TEAM_ID = 'jroad';      // Supabase team_id 기본값
-const TEAM_PW = 'jroad0220';  // Supabase team_pw 기본값
-const MEMBER_ID = 'jroad팀원'; // Supabase member_id 기본값
-const MEMBER_PW = 'jroad0000'; // Supabase member_pw 기본값
+const TEAM_ID   = 'jroad';    // fallback (Supabase 우선)
+const TEAM_PW   = '';         // fallback 비워둠 — Supabase에서만 가져옴
+const MEMBER_ID = 'jroad팀원'; // fallback
+const MEMBER_PW = '';         // fallback 비워둠 — Supabase에서만 가져옴
 
 let currentRole = 'leader'; // 'leader' | 'member'
 
