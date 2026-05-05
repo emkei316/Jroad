@@ -859,37 +859,47 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   .hamburger { display: block; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .g2, .g3 { grid-template-columns: 1fr; }
-  .content { padding: 16px 14px; }
-  .att-btn { width: 40px; height: 40px; font-size: 17px; }
-  .card { padding: 16px; }
-  table { font-size: 12px; }
-  thead th { font-size: 9px; padding: 8px 8px; }
-  tbody td { padding: 10px 8px; }
+  .content { padding: 12px 12px; }
+  .att-btn { width: 36px; height: 36px; font-size: 15px; }
+  .card { padding: 14px; }
+  table { font-size: 11px; }
+  thead th { font-size: 9px; padding: 6px 6px; white-space: nowrap; }
+  tbody td { padding: 8px 6px; }
   .member-grid { grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); }
   /* 출석 2단 → 1단 */
   #page-attendance > div { flex-direction: column; }
-  #page-attendance > div > .card:first-child { width: 100% !important; }
+  #page-attendance > div > div:first-child { width: 100% !important; position: static; }
+  /* 모바일 폼 */
+  .form-row { flex-direction: column; gap: 8px; }
+  /* 모바일 stat-grid */
+  .stat-num { font-size: 32px; }
+  /* 모바일 사이드바 */
+  .sb-nav { padding: 12px 10px; }
+  .sb-item { padding: 10px 10px; font-size: 13px; }
+  /* 모바일 topbar */
+  .topbar { padding: 0 16px; height: 52px; }
+  .topbar-title { font-size: 17px; }
+  /* 모바일 출석 참여버튼 */
+  .att-avail-btn { font-size: 11px; padding: 4px 8px; }
+  /* 모바일 테이블 스크롤 */
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* 모바일 멤버카드 */
+  .member-card { padding: 16px 12px; }
+  .m-name { font-size: 15px; }
+  .m-tenure { font-size: 17px; }
+  /* 모바일 로그인 */
+  .login-box { padding: 0 20px; }
+  .login-logo { font-size: 40px; }
+  .sp-logo { font-size: 72px; }
 }
 /* 출석 관리 카드는 height:auto */
-/* 출석 관리 — 달력/패널 높이 동일하게 */
+/* 출석 관리 */
 #page-attendance .card { height: auto; }
-#page-attendance > div {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-#page-attendance > div > div:first-child {
-  flex-shrink: 0;
-  width: 360px;
-}
-#page-attendance > div > div:last-child {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  /* 달력과 동일한 높이로 고정 후 스크롤 */
-  max-height: 560px;
-  overflow-y: auto;
+#att-layout { align-items: flex-start; }
+
+@media (max-width: 768px) {
+  #att-layout { flex-direction: column; }
+  #att-left { width: 100% !important; }
 }
 @media (max-width: 480px) {
   .stat-grid { grid-template-columns: 1fr 1fr; }
@@ -1311,34 +1321,34 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
 
   <!-- ATTENDANCE -->
   <div id="page-attendance" class="page">
-    <div style="display:flex;gap:16px;align-items:stretch;min-height:500px;">
+    <div id="att-layout" style="display:flex;gap:16px;">
 
       <!-- 왼쪽: 달력 -->
-      <div class="card" style="flex-shrink:0;width:360px;height:auto;">
-        <div class="card-header" style="flex-wrap:wrap;gap:10px;">
+      <div id="att-left" class="card" style="flex-shrink:0;width:350px;">
+        <!-- 헤더: 높이 56px 고정 -->
+        <div style="height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;">
           <div class="week-nav">
             <button class="week-btn" onclick="changeMonth(-1)">◀</button>
-            <div class="week-label" id="att-month-label" style="min-width:110px;"></div>
+            <div class="week-label" id="att-month-label" style="min-width:100px;text-align:center;"></div>
             <button class="week-btn" onclick="changeMonth(1)">▶</button>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <select id="att-type" style="width:80px;font-size:12px;padding:6px 8px;" onchange="renderCalendar()"><option>연습</option></select>
-          </div>
+          <select id="att-type" style="width:76px;font-size:12px;padding:5px 7px;" onchange="renderCalendar()"><option>연습</option></select>
         </div>
-        <div id="att-calendar" style="margin-bottom:0;"></div>
+        <div id="att-calendar"></div>
       </div>
 
-      <!-- 오른쪽: 출석 체크 패널 -->
-      <div class="card" style="flex:1;min-width:0;height:auto;display:flex;flex-direction:column;">
-        <div id="att-panel-header" style="font-family:var(--serif);font-size:17px;font-weight:400;color:var(--ink);margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);min-height:34px;"></div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;min-height:24px;">
+      <!-- 오른쪽: 출석 패널 -->
+      <div id="att-right" class="card" style="flex:1;min-width:0;">
+        <!-- 헤더: 높이 56px 고정 — 왼쪽과 완전히 동일 -->
+        <div style="height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;">
+          <div id="att-panel-header" style="font-family:var(--serif);font-size:16px;color:var(--ink);"></div>
           <div id="att-badges" style="display:flex;gap:5px;"></div>
         </div>
-        <div id="att-panel" style="flex:1;">
+        <div id="att-panel" style="display:none;">
           <div class="tbl-wrap"><table><thead><tr><th>이름</th><th>파트</th><th>참여 여부</th><th>불참 사유</th><th>출석 체크</th><th>메모</th></tr></thead><tbody id="att-tbody"></tbody></table></div>
-          <div id="att-empty" class="empty" style="display:none;"><div class="empty-glyph">◯</div><div class="empty-title">팀원을 먼저 추가해 주세요</div><div class="empty-sub">팀원 관리 메뉴에서 팀원을 등록하면 출석 체크가 가능해요</div></div>
+          <div id="att-empty" class="empty" style="display:none;"><div class="empty-glyph">◯</div><div class="empty-title">팀원을 먼저 추가해 주세요</div></div>
         </div>
-        <div id="att-select-hint" style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--ink5);font-family:var(--serif);">
+        <div id="att-select-hint" style="display:flex;align-items:center;justify-content:center;height:200px;font-size:14px;color:var(--ink5);font-family:var(--serif);">
           ← 달력에서 날짜를 선택하세요
         </div>
       </div>
@@ -2105,9 +2115,10 @@ function renderCalendar(){
   });
 
   if(!selectedAttDate){
-    document.getElementById('att-select-hint').style.display='block';
+    document.getElementById('att-select-hint').style.display='flex';
     document.getElementById('att-panel').style.display='none';
     document.getElementById('att-badges').innerHTML='';
+    document.getElementById('att-panel-header').textContent='';
   } else {
     document.getElementById('att-select-hint').style.display='none';
     document.getElementById('att-panel').style.display='block';
@@ -2132,12 +2143,10 @@ function selectAttDate(date){
   document.querySelectorAll('.cal-cell').forEach(c=>c.classList.remove('selected'));
   const target=document.querySelector(`.cal-cell[data-date="${date}"]`);
   if(target) target.classList.add('selected');
-  // 날짜 헤더 업데이트
-  const fmtDate=new Date(date+'T00:00:00').toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   const type=document.getElementById('att-type')?.value||'연습';
+  const fmtDate=new Date(date+'T00:00:00').toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   const hdr=document.getElementById('att-panel-header');
   if(hdr) hdr.textContent=`${fmtDate} · ${type}`;
-  // 힌트 숨기고 패널 내용 표시
   document.getElementById('att-select-hint').style.display='none';
   document.getElementById('att-panel').style.display='block';
   renderAttPanel(date, type);
