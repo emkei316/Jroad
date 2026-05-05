@@ -876,7 +876,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
 #page-attendance > div {
   display: flex;
   gap: 16px;
-  align-items: stretch;
+  align-items: flex-start;
 }
 #page-attendance > div > div:first-child {
   flex-shrink: 0;
@@ -887,6 +887,9 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* 달력과 동일한 높이로 고정 후 스크롤 */
+  max-height: 560px;
+  overflow-y: auto;
 }
 @media (max-width: 480px) {
   .stat-grid { grid-template-columns: 1fr 1fr; }
@@ -2091,6 +2094,15 @@ function renderCalendar(){
   });
   html += `</div>`;
   document.getElementById('att-calendar').innerHTML = html;
+
+  // 오른쪽 패널 높이를 달력 카드와 동일하게 맞춤
+  requestAnimationFrame(()=>{
+    const leftCard = document.querySelector('#page-attendance > div > div:first-child');
+    const rightCard = document.querySelector('#page-attendance > div > div:last-child');
+    if(leftCard && rightCard){
+      rightCard.style.maxHeight = leftCard.offsetHeight + 'px';
+    }
+  });
 
   if(!selectedAttDate){
     document.getElementById('att-select-hint').style.display='block';
