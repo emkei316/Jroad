@@ -871,7 +871,23 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   #page-attendance > div > .card:first-child { width: 100% !important; }
 }
 /* 출석 관리 카드는 height:auto */
+/* 출석 관리 — 달력/패널 높이 동일하게 */
 #page-attendance .card { height: auto; }
+#page-attendance > div {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+#page-attendance > div > div:first-child {
+  flex-shrink: 0;
+  width: 360px;
+}
+#page-attendance > div > div:last-child {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
 @media (max-width: 480px) {
   .stat-grid { grid-template-columns: 1fr 1fr; }
 }
@@ -1834,10 +1850,18 @@ function calcTenure(joindate){
 function partBadge(p){return `<span class="badge b-gold">${PART_EMOJI[p]||''}${p}</span>`;}
 function attRateColor(r){return r>=80?'#5ea15e':r>=60?'#b8965a':'#c06060';}
 function attRate(mid){
-  const keys=Object.keys(S.attendance);if(!keys.length)return 0;
-  let p=0,t=0;
-  keys.forEach(k=>{const r=S.attendance[k];if(r[mid]!==undefined){t++;if(r[mid].status==='present')p++;}});
-  return t?Math.round(p/t*100):0;
+  const keys=Object.keys(S.attendance);
+  if(!keys.length) return 0;
+  let present=0, total=0;
+  keys.forEach(k=>{
+    const a=S.attendance[k]?.[mid];
+    // status가 명확히 present 또는 absent인 것만 카운트 (avail만 있는 건 제외)
+    if(a && (a.status==='present' || a.status==='absent')){
+      total++;
+      if(a.status==='present') present++;
+    }
+  });
+  return total ? Math.round(present/total*100) : 0;
 }
 function attKeyOf(){return fmt(getMonday(currentWeek))+'_'+(document.getElementById('att-type')?.value||'연습');}
 function populateMemberSelects(){
@@ -2284,10 +2308,18 @@ function renderAttBadges(){
 }
 // 하위호환 — attRate는 기존 key 구조 그대로 사용
 function attRate(mid){
-  const keys=Object.keys(S.attendance);if(!keys.length)return 0;
-  let p=0,t=0;
-  keys.forEach(k=>{const r=S.attendance[k];if(r[mid]!==undefined){t++;if(r[mid].status==='present')p++;}});
-  return t?Math.round(p/t*100):0;
+  const keys=Object.keys(S.attendance);
+  if(!keys.length) return 0;
+  let present=0, total=0;
+  keys.forEach(k=>{
+    const a=S.attendance[k]?.[mid];
+    // status가 명확히 present 또는 absent인 것만 카운트 (avail만 있는 건 제외)
+    if(a && (a.status==='present' || a.status==='absent')){
+      total++;
+      if(a.status==='present') present++;
+    }
+  });
+  return total ? Math.round(present/total*100) : 0;
 }
 
 /* ════════════════════════════
@@ -2807,11 +2839,18 @@ function renderStats(){
   const top=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const maxF=top[0]?.[1]||1;
   songEl.innerHTML=top.length?top.map(([t,c],i)=>`<div class="song-row"><span class="song-rank">${i+1}</span><div class="song-title-text" style="flex:1;">${t}</div><div class="bar-track" style="flex:1;margin:0 10px;"><div class="bar-fill" style="width:${c/maxF*100}%;"></div></div><span class="song-count">${c}회</span></div>`).join(''):'<div class="empty"><div class="empty-title" style="font-size:14px;">곡 없음</div></div>';
-  // 월별
+  // 월별 출석 추이
   const monthly={};
   Object.entries(S.attendance).forEach(([k,rec])=>{
-    const month=k.slice(0,7);if(!monthly[month])monthly[month]={p:0,t:0};
-    Object.values(rec).forEach(v=>{if(v.status){monthly[month].t++;if(v.status==='present')monthly[month].p++;}});
+    const month=k.slice(0,7);
+    if(!monthly[month]) monthly[month]={p:0,t:0};
+    Object.values(rec).forEach(v=>{
+      // status가 present 또는 absent인 것만 카운트
+      if(v.status==='present' || v.status==='absent'){
+        monthly[month].t++;
+        if(v.status==='present') monthly[month].p++;
+      }
+    });
   });
   const mEl=document.getElementById('stats-monthly');
   const months=Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
