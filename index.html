@@ -891,19 +891,29 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   .login-logo { font-size: 40px; }
   .sp-logo { font-size: 72px; }
 }
-/* 출석 관리 */
-#att-left, #att-right { height: auto !important; box-sizing: border-box; }
+/* 출석 관리
+   핵심: #att-right에 .card+.card margin-top:16px이 붙는 것을 차단
+   핵심: .card padding:28px, 모바일 .card padding:14px 12px 모두 덮어써야 함 */
+#att-left, #att-right {
+  height: auto !important;
+  box-sizing: border-box;
+  margin-top: 0 !important;
+  padding: 20px !important;
+}
 #att-layout { align-items: flex-start; }
 
 @media (max-width: 768px) {
   #att-layout { flex-direction: column; }
   #att-left { width: 100% !important; }
+  /* 모바일에서도 동일한 padding 유지 */
+  #att-left, #att-right { padding: 16px !important; }
 }
 @media (max-width: 480px) {
   .stat-grid { grid-template-columns: 1fr 1fr; }
 }
 
-/* ── 모바일 곡 관리: 카드형 레이아웃 ── */
+/* ══ 모바일 곡 관리 카드형 ══
+   데스크탑: 테이블 / 모바일: 카드형으로 전환 */
 .song-card-mobile { display: none; }
 .song-table-desktop { display: block; }
 
@@ -911,27 +921,30 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   .song-table-desktop { display: none !important; }
   .song-card-mobile   { display: block !important; }
 
+  /* 곡 카드 단위 */
   .sc-item {
     background: var(--cream3);
     border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
     border-radius: 8px;
-    padding: 14px 14px 12px;
+    padding: 13px 14px 11px;
     margin-bottom: 10px;
-    border-left: 3px solid var(--gold3);
   }
   .sc-item:last-child { margin-bottom: 0; }
 
+  /* 날짜 + 배지 행 */
   .sc-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 6px;
-    margin-bottom: 7px;
+    margin-bottom: 6px;
   }
   .sc-date { font-size: 11px; color: var(--ink5); white-space: nowrap; }
-  .sc-badges { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .sc-badges { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 
+  /* 곡 제목 — 가로 읽힘 */
   .sc-title {
     font-family: var(--serif);
     font-size: 17px;
@@ -939,24 +952,27 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
     color: var(--ink);
     line-height: 1.4;
     word-break: keep-all;
-    margin-bottom: 9px;
+    overflow-wrap: break-word;
+    margin-bottom: 8px;
   }
 
+  /* 키 + 링크 + 버튼 행 */
   .sc-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .sc-meta-left { display: flex; align-items: center; gap: 8px; }
   .sc-key {
-    font-size: 11px; color: var(--ink4);
+    font-size: 11px;
+    color: var(--ink4);
     background: rgba(26,24,20,0.06);
-    padding: 2px 8px; border-radius: 3px;
+    padding: 2px 8px;
+    border-radius: 3px;
   }
-  .sc-actions { display: flex; gap: 6px; }
-  .song-tab { font-size: 10px; padding: 9px 0; }
+  .sc-actions { display: flex; gap: 5px; }
 }
 
 /* ─── VIEW TOGGLE ─── */
@@ -1378,8 +1394,9 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
     <div id="att-layout" style="display:flex;gap:16px;align-items:flex-start;">
 
       <!-- 왼쪽: 달력 -->
-      <div id="att-left" class="card" style="flex-shrink:0;width:350px;padding:20px;">
-        <div style="min-height:52px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;padding-bottom:14px;">
+      <div id="att-left" class="card" style="flex-shrink:0;width:350px;">
+        <!-- 헤더 — att-right와 구조/간격 완전 동일 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;padding-bottom:12px;">
           <div class="week-nav">
             <button class="week-btn" onclick="changeMonth(-1)">◀</button>
             <div class="week-label" id="att-month-label" style="min-width:100px;text-align:center;"></div>
@@ -1391,8 +1408,9 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
       </div>
 
       <!-- 오른쪽: 출석 패널 -->
-      <div id="att-right" class="card" style="flex:1;min-width:0;padding:20px;overflow:hidden;">
-        <div style="min-height:52px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;padding-bottom:14px;">
+      <div id="att-right" class="card" style="flex:1;min-width:0;overflow:hidden;">
+        <!-- 헤더 — att-left와 구조/간격 완전 동일 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;padding-bottom:12px;">
           <div id="att-panel-header" style="font-family:var(--serif);font-size:16px;color:var(--ink);line-height:1.4;"></div>
           <div id="att-badges" style="display:flex;gap:5px;flex-shrink:0;margin-left:8px;"></div>
         </div>
@@ -2183,7 +2201,7 @@ function renderCalendar(){
   html += `</div>`;
   document.getElementById('att-calendar').innerHTML = html;
 
-  // JS maxHeight 강제 제거 — CSS align-items:flex-start 로 처리
+  // JS maxHeight 강제 제거됨
 
   if(!selectedAttDate){
     document.getElementById('att-select-hint').style.display='flex';
@@ -2447,8 +2465,8 @@ function renderSongs(){
   if(q)songs=songs.filter(s=>s.title.toLowerCase().includes(q)||(s.topic||'').toLowerCase().includes(q)||(s.tag||'').toLowerCase().includes(q));
   if(tof)songs=songs.filter(s=>s.topic===tof);
   const tbody=document.getElementById('song-tbody');
-  const empty=document.getElementById('song-empty');
   const cardList=document.getElementById('song-card-list');
+  const empty=document.getElementById('song-empty');
   if(!songs.length){
     if(tbody) tbody.innerHTML='';
     if(cardList) cardList.innerHTML='';
@@ -2459,7 +2477,7 @@ function renderSongs(){
   const tagBadge={새곡:'b-green',익숙:'b-muted',어려움:'b-gold'};
   const isLeader = currentRole==='leader';
 
-  /* ── 데스크탑 테이블 ── */
+  /* 데스크탑 테이블 */
   if(tbody) tbody.innerHTML=songs.map(s=>`<tr>
     <td style="font-size:12px;color:var(--ink4);white-space:nowrap;">${s.date}</td>
     <td style="font-family:var(--serif);font-size:15px;word-break:keep-all;">${s.title}</td>
@@ -2475,7 +2493,7 @@ function renderSongs(){
     </td>
   </tr>`).join('');
 
-  /* ── 모바일 카드형 ── */
+  /* 모바일 카드형 */
   if(cardList) cardList.innerHTML=songs.map(s=>`
     <div class="sc-item">
       <div class="sc-top">
