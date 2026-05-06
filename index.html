@@ -903,6 +903,88 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   .stat-grid { grid-template-columns: 1fr 1fr; }
 }
 
+/* ─── 모바일 곡 관리: 카드형 레이아웃 ─── */
+/* 데스크탑: 일반 테이블 유지 */
+.song-card-mobile { display: none; }
+.song-table-desktop { display: block; }
+
+@media (max-width: 768px) {
+  /* 곡 테이블 숨기고 카드형으로 전환 */
+  .song-table-desktop { display: none; }
+  .song-card-mobile { display: block; }
+
+  /* 카드 개별 항목 */
+  .sc-item {
+    background: var(--cream4);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    transition: border-color .15s;
+  }
+  .sc-item:last-child { margin-bottom: 0; }
+  .sc-item:hover { border-color: var(--border2); }
+
+  /* 카드 상단 행: 날짜 + 배지들 */
+  .sc-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .sc-date {
+    font-size: 11px;
+    color: var(--ink5);
+    letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .sc-badges {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  /* 카드 제목 행 */
+  .sc-title {
+    font-family: var(--serif);
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: 8px;
+    line-height: 1.4;
+    word-break: keep-all;
+  }
+
+  /* 카드 메타 행: 키 + 링크 + 액션 */
+  .sc-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sc-key {
+    font-size: 12px;
+    color: var(--ink4);
+    background: rgba(26,24,20,0.05);
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .sc-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* 셋리스트 모바일 */
+  #page-setlist .g2 { gap: 12px; }
+
+  /* 모바일 song-tab-bar */
+  .song-tab { font-size: 10px; padding: 9px 0; }
+}
+
 /* ─── VIEW TOGGLE ─── */
 .view-toggle {
   display: flex; background: rgba(26,24,20,0.04);
@@ -1323,7 +1405,6 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
 
       <!-- 왼쪽: 달력 -->
       <div id="att-left" class="card" style="flex-shrink:0;width:350px;padding:20px;">
-        <!-- 헤더: card-header 클래스 동일 적용, min-height로 내용 보호 -->
         <div style="min-height:52px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;padding-bottom:14px;">
           <div class="week-nav">
             <button class="week-btn" onclick="changeMonth(-1)">◀</button>
@@ -1337,21 +1418,20 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
 
       <!-- 오른쪽: 출석 패널 -->
       <div id="att-right" class="card" style="flex:1;min-width:0;padding:20px;overflow:hidden;">
-        <!-- 헤더: 왼쪽과 동일한 구조 — min-height + padding-bottom 통일 -->
         <div style="min-height:52px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;padding-bottom:14px;">
           <div id="att-panel-header" style="font-family:var(--serif);font-size:16px;color:var(--ink);line-height:1.4;"></div>
           <div id="att-badges" style="display:flex;gap:5px;flex-shrink:0;margin-left:8px;"></div>
         </div>
         <div id="att-panel" style="display:none;">
           <div class="tbl-wrap">
-            <table style="width:100%;min-width:500px;">
+            <table style="width:100%;min-width:520px;">
               <thead><tr>
-                <th style="min-width:80px;width:90px;">이름</th>
-                <th style="min-width:70px;width:80px;">파트</th>
-                <th style="min-width:140px;">참여 여부</th>
-                <th style="min-width:120px;">불참 사유</th>
-                <th style="min-width:90px;width:100px;">출석 체크</th>
-                <th style="min-width:80px;">메모</th>
+                <th style="min-width:72px;width:80px;">이름</th>
+                <th style="min-width:68px;width:76px;">파트</th>
+                <th style="min-width:130px;">참여 여부</th>
+                <th style="min-width:110px;">불참 사유</th>
+                <th style="min-width:88px;width:96px;">출석 체크</th>
+                <th>메모</th>
               </tr></thead>
               <tbody id="att-tbody"></tbody>
             </table>
@@ -1381,7 +1461,12 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
           </div>
           <button class="btn btn-outline btn-sm" onclick="openTopicManager()" style="white-space:nowrap;">🏷️ 주제 관리</button>
         </div>
-        <div class="tbl-wrap"><table style="min-width:600px;"><thead><tr><th style="min-width:90px;">날짜</th><th style="min-width:130px;">곡명</th><th style="min-width:40px;">키</th><th style="min-width:55px;">구분</th><th style="min-width:60px;">주제</th><th style="min-width:55px;">태그</th><th style="min-width:50px;">링크</th><th></th></tr></thead><tbody id="song-tbody"></tbody></table></div>
+        <!-- 데스크탑: 테이블 -->
+        <div class="song-table-desktop">
+          <div class="tbl-wrap"><table style="min-width:600px;"><thead><tr><th style="min-width:90px;">날짜</th><th style="min-width:130px;">곡명</th><th style="min-width:40px;">키</th><th style="min-width:55px;">구분</th><th style="min-width:60px;">주제</th><th style="min-width:55px;">태그</th><th style="min-width:50px;">링크</th><th></th></tr></thead><tbody id="song-tbody"></tbody></table></div>
+        </div>
+        <!-- 모바일: 카드형 -->
+        <div class="song-card-mobile" id="song-card-list"></div>
         <div id="song-empty" class="empty" style="display:none;"><div class="empty-glyph">♩</div><div class="empty-title">등록된 찬양이 없어요</div><button class="btn btn-primary" style="margin-top:8px;" onclick="openAddSong()">+ 곡 추가</button></div>
       </div>
     </div>
@@ -2126,7 +2211,7 @@ function renderCalendar(){
   html += `</div>`;
   document.getElementById('att-calendar').innerHTML = html;
 
-  // 높이 강제 제거 — CSS align-items:flex-start + min-height로 처리
+  // 높이 강제 제거 — CSS align-items:flex-start 로 처리
 
   if(!selectedAttDate){
     document.getElementById('att-select-hint').style.display='flex';
@@ -2232,7 +2317,7 @@ function renderAttPanel(date, type){
         onchange="setAttNote('${m.id}','${key}',this.value)">`;
 
     return`<tr>
-      <td style="font-family:var(--serif);font-size:14px;word-break:keep-all;overflow-wrap:break-word;max-width:90px;">${m.name}</td>
+      <td style="font-family:var(--serif);font-size:14px;word-break:keep-all;overflow-wrap:break-word;max-width:80px;">${m.name}</td>
       <td>${partBadge(m.part)}</td>
       <td>${availCell}</td>
       <td>${reasonCell}</td>
@@ -2397,18 +2482,45 @@ function renderSongs(){
   const isLeader = currentRole==='leader';
   tbody.innerHTML=songs.map(s=>`<tr>
     <td style="font-size:12px;color:var(--ink4);white-space:nowrap;">${s.date}</td>
-    <td style="font-family:var(--serif);font-size:15px;white-space:nowrap;">${s.title}</td>
-    <td style="color:var(--ink4);">${s.key||'—'}</td>
-    <td><span class="badge b-ink">${s.type||'연습'}</span></td>
-    <td>${s.topic?`<span class="badge b-muted">${s.topic}</span>`:'—'}</td>
-    <td>${s.tag?`<span class="badge ${tagBadge[s.tag]||'b-muted'}">${s.tag}</span>`:'—'}</td>
-    <td>${s.link?`<a href="${s.link}" target="_blank" style="color:var(--gold);font-size:12px;text-decoration:none;">🔗 링크</a>`:'—'}</td>
-    <td>${isLeader?`<div style="display:flex;gap:4px;">
+    <td style="font-family:var(--serif);font-size:15px;word-break:keep-all;min-width:100px;">${s.title}</td>
+    <td style="color:var(--ink4);white-space:nowrap;">${s.key||'—'}</td>
+    <td style="white-space:nowrap;"><span class="badge b-ink">${s.type||'연습'}</span></td>
+    <td style="white-space:nowrap;">${s.topic?`<span class="badge b-muted">${s.topic}</span>`:'—'}</td>
+    <td style="white-space:nowrap;">${s.tag?`<span class="badge ${tagBadge[s.tag]||'b-muted'}">${s.tag}</span>`:'—'}</td>
+    <td style="white-space:nowrap;">${s.link?`<a href="${s.link}" target="_blank" style="color:var(--gold);font-size:12px;text-decoration:none;">🔗 링크</a>`:'—'}</td>
+    <td>${isLeader?`<div style="display:flex;gap:4px;white-space:nowrap;">
       <button class="btn btn-outline btn-sm" onclick="openEditSong('${s.id}')">수정</button>
       <button class="btn btn-outline btn-sm" style="color:#a04040;border-color:rgba(160,64,64,.2);" onclick="deleteSong('${s.id}')">삭제</button>
     </div>`:''}
     </td>
   </tr>`).join('');
+
+  // 모바일 카드형 렌더링
+  const cardList = document.getElementById('song-card-list');
+  if(cardList){
+    cardList.innerHTML = songs.map(s=>`
+      <div class="sc-item">
+        <div class="sc-top">
+          <span class="sc-date">${s.date}</span>
+          <div class="sc-badges">
+            <span class="badge b-ink" style="font-size:10px;">${s.type||'연습'}</span>
+            ${s.topic?`<span class="badge b-muted" style="font-size:10px;">${s.topic}</span>`:''}
+            ${s.tag?`<span class="badge ${tagBadge[s.tag]||'b-muted'} " style="font-size:10px;">${s.tag}</span>`:''}
+          </div>
+        </div>
+        <div class="sc-title">${s.title}</div>
+        <div class="sc-meta">
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${s.key?`<span class="sc-key">Key ${s.key}</span>`:''}
+            ${s.link?`<a href="${s.link}" target="_blank" style="color:var(--gold);font-size:12px;text-decoration:none;">🔗 링크</a>`:''}
+          </div>
+          ${isLeader?`<div class="sc-actions">
+            <button class="btn btn-outline btn-sm" onclick="openEditSong('${s.id}')">수정</button>
+            <button class="btn btn-outline btn-sm" style="color:#a04040;border-color:rgba(160,64,64,.2);" onclick="deleteSong('${s.id}')">삭제</button>
+          </div>`:''}
+        </div>
+      </div>`).join('');
+  }
 }
 function renderLibrary(){
   const uniq={};
