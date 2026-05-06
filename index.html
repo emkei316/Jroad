@@ -892,9 +892,9 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   .login-logo { font-size: 40px; }
   .sp-logo { font-size: 72px; }
 }
-/* 출석 관리 카드는 height:auto */
 /* 출석 관리 */
-#page-attendance .card { height: auto; }
+#page-attendance .card { height: auto !important; }
+#att-left, #att-right { height: auto !important; }
 #att-layout { align-items: flex-start; }
 
 @media (max-width: 768px) {
@@ -1324,7 +1324,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
     <div id="att-layout" style="display:flex;gap:16px;">
 
       <!-- 왼쪽: 달력 -->
-      <div id="att-left" class="card" style="flex-shrink:0;width:350px;">
+      <div id="att-left" class="card" style="flex-shrink:0;width:350px;padding:20px;">
         <!-- 헤더: 높이 56px 고정 -->
         <div style="height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;">
           <div class="week-nav">
@@ -1338,14 +1338,14 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
       </div>
 
       <!-- 오른쪽: 출석 패널 -->
-      <div id="att-right" class="card" style="flex:1;min-width:0;">
+      <div id="att-right" class="card" style="flex:1;min-width:0;padding:20px;">
         <!-- 헤더: 높이 56px 고정 — 왼쪽과 완전히 동일 -->
         <div style="height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;">
           <div id="att-panel-header" style="font-family:var(--serif);font-size:16px;color:var(--ink);"></div>
           <div id="att-badges" style="display:flex;gap:5px;"></div>
         </div>
         <div id="att-panel" style="display:none;">
-          <div class="tbl-wrap"><table><thead><tr><th>이름</th><th>파트</th><th>참여 여부</th><th>불참 사유</th><th>출석 체크</th><th>메모</th></tr></thead><tbody id="att-tbody"></tbody></table></div>
+          <div class="tbl-wrap"><table style="min-width:650px;"><thead><tr><th style="min-width:60px;">이름</th><th style="min-width:70px;">파트</th><th style="min-width:140px;">참여 여부</th><th style="min-width:120px;">불참 사유</th><th style="min-width:90px;">출석 체크</th><th style="min-width:120px;">메모</th></tr></thead><tbody id="att-tbody"></tbody></table></div>
           <div id="att-empty" class="empty" style="display:none;"><div class="empty-glyph">◯</div><div class="empty-title">팀원을 먼저 추가해 주세요</div></div>
         </div>
         <div id="att-select-hint" style="display:flex;align-items:center;justify-content:center;height:200px;font-size:14px;color:var(--ink5);font-family:var(--serif);">
@@ -1371,7 +1371,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
           </div>
           <button class="btn btn-outline btn-sm" onclick="openTopicManager()" style="white-space:nowrap;">🏷️ 주제 관리</button>
         </div>
-        <div class="tbl-wrap"><table><thead><tr><th>날짜</th><th>곡명</th><th>키</th><th>구분</th><th>주제</th><th>태그</th><th>링크</th><th></th></tr></thead><tbody id="song-tbody"></tbody></table></div>
+        <div class="tbl-wrap"><table style="min-width:600px;"><thead><tr><th style="min-width:90px;">날짜</th><th style="min-width:130px;">곡명</th><th style="min-width:40px;">키</th><th style="min-width:55px;">구분</th><th style="min-width:60px;">주제</th><th style="min-width:55px;">태그</th><th style="min-width:50px;">링크</th><th></th></tr></thead><tbody id="song-tbody"></tbody></table></div>
         <div id="song-empty" class="empty" style="display:none;"><div class="empty-glyph">♩</div><div class="empty-title">등록된 찬양이 없어요</div><button class="btn btn-primary" style="margin-top:8px;" onclick="openAddSong()">+ 곡 추가</button></div>
       </div>
     </div>
@@ -2229,7 +2229,7 @@ function renderAttPanel(date, type){
         onchange="setAttNote('${m.id}','${key}',this.value)">`;
 
     return`<tr>
-      <td style="font-family:var(--serif);font-size:15px;white-space:nowrap;">${m.name}</td>
+      <td style="font-family:var(--serif);font-size:15px;white-space:nowrap;min-width:60px;">${m.name}</td>
       <td>${partBadge(m.part)}</td>
       <td>${availCell}</td>
       <td>${reasonCell}</td>
@@ -2394,7 +2394,7 @@ function renderSongs(){
   const isLeader = currentRole==='leader';
   tbody.innerHTML=songs.map(s=>`<tr>
     <td style="font-size:12px;color:var(--ink4);white-space:nowrap;">${s.date}</td>
-    <td style="font-family:var(--serif);font-size:15px;">${s.title}</td>
+    <td style="font-family:var(--serif);font-size:15px;white-space:nowrap;">${s.title}</td>
     <td style="color:var(--ink4);">${s.key||'—'}</td>
     <td><span class="badge b-ink">${s.type||'연습'}</span></td>
     <td>${s.topic?`<span class="badge b-muted">${s.topic}</span>`:'—'}</td>
