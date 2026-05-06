@@ -462,7 +462,6 @@ body {
   border-radius: var(--r);
   padding: 28px;
   box-sizing: border-box;
-  height: 100%;
 }
 .card + .card { margin-top: 16px; }
 /* g2/g3 직계 자식은 margin-top 없음 */
@@ -488,9 +487,9 @@ body {
 /* ─── GRID ─── */
 .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
 .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: stretch; }
-/* g2 직계 자식 카드는 항상 높이 100% */
-.g2 > .card { height: 100%; }
-.g3 > .card { height: 100%; }
+/* g2/g3 직계 자식 카드만 height:100% */
+.g2 > .card { height: 100%; box-sizing: border-box; }
+.g3 > .card { height: 100%; box-sizing: border-box; }
 .mb24 { margin-bottom: 24px; }
 
 /* ─── BUTTONS ─── */
@@ -544,7 +543,7 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
 select option { background: var(--cream4); }
 
 /* ─── TABLE ─── */
-.tbl-wrap { overflow-x: auto; }
+.tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; display: block; width: 100%; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th {
   padding: 10px 14px; text-align: left;
@@ -861,7 +860,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   .g2, .g3 { grid-template-columns: 1fr; }
   .content { padding: 12px 12px; }
   .att-btn { width: 36px; height: 36px; font-size: 15px; }
-  .card { padding: 14px; }
+  .card { padding: 14px 12px; }
   table { font-size: 11px; }
   thead th { font-size: 9px; padding: 6px 6px; white-space: nowrap; }
   tbody td { padding: 8px 6px; }
@@ -893,8 +892,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   .sp-logo { font-size: 72px; }
 }
 /* 출석 관리 */
-#page-attendance .card { height: auto !important; }
-#att-left, #att-right { height: auto !important; }
+#att-left, #att-right { height: auto !important; box-sizing: border-box; }
 #att-layout { align-items: flex-start; }
 
 @media (max-width: 768px) {
@@ -2229,7 +2227,7 @@ function renderAttPanel(date, type){
         onchange="setAttNote('${m.id}','${key}',this.value)">`;
 
     return`<tr>
-      <td style="font-family:var(--serif);font-size:15px;white-space:nowrap;min-width:60px;">${m.name}</td>
+      <td style="font-family:var(--serif);font-size:15px;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;">${m.name}</td>
       <td>${partBadge(m.part)}</td>
       <td>${availCell}</td>
       <td>${reasonCell}</td>
