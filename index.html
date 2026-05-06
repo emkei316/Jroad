@@ -892,7 +892,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
   .sp-logo { font-size: 72px; }
 }
 /* 출석 관리 */
-#att-left, #att-right { height: auto !important; box-sizing: border-box; margin-top: 0 !important; }
+#att-left, #att-right { height: auto !important; box-sizing: border-box; }
 #att-layout { align-items: flex-start; }
 
 @media (max-width: 768px) {
@@ -1319,12 +1319,12 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
 
   <!-- ATTENDANCE -->
   <div id="page-attendance" class="page">
-    <div id="att-layout" style="display:flex;gap:16px;">
+    <div id="att-layout" style="display:flex;gap:16px;align-items:flex-start;">
 
       <!-- 왼쪽: 달력 -->
       <div id="att-left" class="card" style="flex-shrink:0;width:350px;padding:20px;">
-        <!-- 헤더: 높이 56px 고정 -->
-        <div style="height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;">
+        <!-- 헤더: card-header 클래스 동일 적용, min-height로 내용 보호 -->
+        <div style="min-height:52px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;padding-bottom:14px;">
           <div class="week-nav">
             <button class="week-btn" onclick="changeMonth(-1)">◀</button>
             <div class="week-label" id="att-month-label" style="min-width:100px;text-align:center;"></div>
@@ -1336,14 +1336,26 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
       </div>
 
       <!-- 오른쪽: 출석 패널 -->
-      <div id="att-right" class="card" style="flex:1;min-width:0;padding:20px;">
-        <!-- 헤더: 높이 56px 고정 — 왼쪽과 완전히 동일 -->
-        <div style="height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;">
-          <div id="att-panel-header" style="font-family:var(--serif);font-size:16px;color:var(--ink);"></div>
-          <div id="att-badges" style="display:flex;gap:5px;"></div>
+      <div id="att-right" class="card" style="flex:1;min-width:0;padding:20px;overflow:hidden;">
+        <!-- 헤더: 왼쪽과 동일한 구조 — min-height + padding-bottom 통일 -->
+        <div style="min-height:52px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:16px;padding-bottom:14px;">
+          <div id="att-panel-header" style="font-family:var(--serif);font-size:16px;color:var(--ink);line-height:1.4;"></div>
+          <div id="att-badges" style="display:flex;gap:5px;flex-shrink:0;margin-left:8px;"></div>
         </div>
         <div id="att-panel" style="display:none;">
-          <div class="tbl-wrap"><table style="width:100%;"><thead><tr><th style="width:70px;">이름</th><th style="width:80px;">파트</th><th style="width:150px;">참여 여부</th><th style="width:130px;">불참 사유</th><th style="width:100px;">출석 체크</th><th>메모</th></tr></thead><tbody id="att-tbody"></tbody></table></div>
+          <div class="tbl-wrap">
+            <table style="width:100%;min-width:500px;">
+              <thead><tr>
+                <th style="min-width:80px;width:90px;">이름</th>
+                <th style="min-width:70px;width:80px;">파트</th>
+                <th style="min-width:140px;">참여 여부</th>
+                <th style="min-width:120px;">불참 사유</th>
+                <th style="min-width:90px;width:100px;">출석 체크</th>
+                <th style="min-width:80px;">메모</th>
+              </tr></thead>
+              <tbody id="att-tbody"></tbody>
+            </table>
+          </div>
           <div id="att-empty" class="empty" style="display:none;"><div class="empty-glyph">◯</div><div class="empty-title">팀원을 먼저 추가해 주세요</div></div>
         </div>
         <div id="att-select-hint" style="display:flex;align-items:center;justify-content:center;height:200px;font-size:14px;color:var(--ink5);font-family:var(--serif);">
@@ -2114,14 +2126,7 @@ function renderCalendar(){
   html += `</div>`;
   document.getElementById('att-calendar').innerHTML = html;
 
-  // 오른쪽 패널 높이를 달력 카드와 동일하게 맞춤
-  requestAnimationFrame(()=>{
-    const leftCard = document.querySelector('#page-attendance > div > div:first-child');
-    const rightCard = document.querySelector('#page-attendance > div > div:last-child');
-    if(leftCard && rightCard){
-      rightCard.style.maxHeight = leftCard.offsetHeight + 'px';
-    }
-  });
+  // 높이 강제 제거 — CSS align-items:flex-start + min-height로 처리
 
   if(!selectedAttDate){
     document.getElementById('att-select-hint').style.display='flex';
@@ -2227,7 +2232,7 @@ function renderAttPanel(date, type){
         onchange="setAttNote('${m.id}','${key}',this.value)">`;
 
     return`<tr>
-      <td style="font-family:var(--serif);font-size:14px;white-space:nowrap;">${m.name}</td>
+      <td style="font-family:var(--serif);font-size:14px;word-break:keep-all;overflow-wrap:break-word;max-width:90px;">${m.name}</td>
       <td>${partBadge(m.part)}</td>
       <td>${availCell}</td>
       <td>${reasonCell}</td>
