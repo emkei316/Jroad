@@ -1973,12 +1973,14 @@ function attRate(mid){
   if(!keys.length) return 0;
   let present=0, total=0;
   keys.forEach(k=>{
-    const a=S.attendance[k]?.[mid];
-    // status가 명확히 present 또는 absent인 것만 카운트 (avail만 있는 건 제외)
-    if(a && (a.status==='present' || a.status==='absent')){
-      total++;
-      if(a.status==='present') present++;
-    }
+    const rec=S.attendance[k];
+    // 이 날 출석체크가 1명이라도 실제로 이뤄진 날만 분모에 포함
+    // → 출석 기록이 없는 팀원은 그 날 결석으로 처리 (공정한 비교)
+    const hasAnyStatus=Object.values(rec).some(v=>v.status==='present'||v.status==='absent');
+    if(!hasAnyStatus) return;
+    total++;
+    const a=rec[mid];
+    if(a && a.status==='present') present++;
   });
   return total ? Math.round(present/total*100) : 0;
 }
@@ -1993,9 +1995,16 @@ function populateMemberSelects(){
 ════════════════════════════ */
 function renderDashboard(){
   const total=S.members.length;
-  const ks=Object.keys(S.attendance).sort().reverse();
+  // 날짜 기준 최신 key (연습/예배 혼재 상관없이 날짜 앞부분으로 정렬)
+  const ks=Object.keys(S.attendance)
+    .filter(k=>Object.values(S.attendance[k]).some(v=>v.status==='present'||v.status==='absent'))
+    .sort((a,b)=>b.slice(0,10).localeCompare(a.slice(0,10)));
   let lp=0,la=0,lk='';
-  if(ks.length){lk=ks[0];const r=S.attendance[lk]||{};Object.values(r).forEach(v=>{if(v.status==='present')lp++;else if(v.status==='absent')la++;});}
+  if(ks.length){
+    lk=ks[0];
+    const r=S.attendance[lk]||{};
+    Object.values(r).forEach(v=>{if(v.status==='present')lp++;else if(v.status==='absent')la++;});
+  }
   document.getElementById('dash-stats').innerHTML=`
     <div class="stat-card"><div class="stat-num">${total}<span class="stat-unit">명</span></div><div class="stat-label">총 팀원</div></div>
     <div class="stat-card"><div class="stat-num">${lp}<span class="stat-unit">명</span></div><div class="stat-label">최근 출석</div><div class="stat-sub">${lk?lk.replace('_',' '):'기록 없음'}</div></div>
@@ -2469,12 +2478,14 @@ function attRate(mid){
   if(!keys.length) return 0;
   let present=0, total=0;
   keys.forEach(k=>{
-    const a=S.attendance[k]?.[mid];
-    // status가 명확히 present 또는 absent인 것만 카운트 (avail만 있는 건 제외)
-    if(a && (a.status==='present' || a.status==='absent')){
-      total++;
-      if(a.status==='present') present++;
-    }
+    const rec=S.attendance[k];
+    // 이 날 출석체크가 1명이라도 실제로 이뤄진 날만 분모에 포함
+    // → 출석 기록이 없는 팀원은 그 날 결석으로 처리 (공정한 비교)
+    const hasAnyStatus=Object.values(rec).some(v=>v.status==='present'||v.status==='absent');
+    if(!hasAnyStatus) return;
+    total++;
+    const a=rec[mid];
+    if(a && a.status==='present') present++;
   });
   return total ? Math.round(present/total*100) : 0;
 }
@@ -3034,8 +3045,28 @@ function renderStats(){
   const attEl=document.getElementById('stats-att');
   if(!S.members.length){attEl.innerHTML='<div class="empty"><div class="empty-title" style="font-size:14px;">팀원 없음</div></div>';}
   else{
-    const sorted=[...S.members].map(m=>({name:m.name,pct:attRate(m.id)})).sort((a,b)=>b.pct-a.pct);
-    attEl.innerHTML=sorted.map(m=>`<div class="bar-row"><div class="bar-name">${m.name}</div><div class="bar-track"><div class="bar-fill" style="width:${m.pct}%;background:${attRateColor(m.pct)};"></div></div><div class="bar-pct" style="color:${attRateColor(m.pct)};">${m.pct}%</div></div>`).join('');
+    // 전체 세션 수 계산 (출석체크가 1명이라도 이뤄진 날)
+    const totalSessions=Object.values(S.attendance).filter(rec=>
+      Object.values(rec).some(v=>v.status==='present'||v.status==='absent')
+    ).length;
+    const sorted=[...S.members].map(m=>{
+      const pct=attRate(m.id);
+      // 실제 출석 횟수
+      let presentCount=0;
+      Object.values(S.attendance).forEach(rec=>{
+        if(rec[m.id]?.status==='present') presentCount++;
+      });
+      return {name:m.name, pct, presentCount, totalSessions};
+    }).sort((a,b)=>b.pct-a.pct);
+    attEl.innerHTML=sorted.map(m=>`
+      <div class="bar-row">
+        <div class="bar-name">${m.name}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${m.pct}%;background:${attRateColor(m.pct)};"></div></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <span style="font-size:11px;color:var(--ink5);">${m.presentCount}/${m.totalSessions}회</span>
+          <div class="bar-pct" style="color:${attRateColor(m.pct)};">${m.pct}%</div>
+        </div>
+      </div>`).join('');
   }
   // 곡 빈도
   const freq={};S.songs.forEach(s=>{freq[s.title]=(freq[s.title]||0)+1;});
@@ -3047,14 +3078,21 @@ function renderStats(){
   const monthly={};
   Object.entries(S.attendance).forEach(([k,rec])=>{
     const month=k.slice(0,7);
-    if(!monthly[month]) monthly[month]={p:0,t:0};
+    // 이 날 출석체크가 1명이라도 이뤄진 날만 집계
+    const hasAnyStatus=Object.values(rec).some(v=>v.status==='present'||v.status==='absent');
+    if(!hasAnyStatus) return;
+    if(!monthly[month]) monthly[month]={p:0,t:0,sessions:0};
+    // 이 날의 팀원 전체를 분모로: 출석=present, 나머지(absent+미기록)=결석
+    monthly[month].sessions++;
+    // 실제 present 수만 p에 누적, 분모는 팀원 전체 수 × 세션 수로 나중에 계산
     Object.values(rec).forEach(v=>{
-      // status가 present 또는 absent인 것만 카운트
-      if(v.status==='present' || v.status==='absent'){
-        monthly[month].t++;
-        if(v.status==='present') monthly[month].p++;
-      }
+      if(v.status==='present') monthly[month].p++;
+      if(v.status==='present'||v.status==='absent') monthly[month].t++;
     });
+    // 미기록 팀원도 분모에 포함 (팀원 전체 - 기록된 팀원)
+    const recordedCount=Object.keys(rec).length;
+    const unrecorded=Math.max(0, S.members.length - recordedCount);
+    monthly[month].t+=unrecorded;
   });
   const mEl=document.getElementById('stats-monthly');
   const months=Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
