@@ -1195,7 +1195,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
     <div class="modal-rule"></div>
     <div class="form-row">
       <div class="fg"><label>날짜 *</label><input type="date" id="sm-date"></div>
-      <div class="fg"><label>구분</label><select id="sm-type"><option>연습</option></select></div>
+      <div class="fg"><label>구분</label><select id="sm-type"><option>연습</option><option>예배</option></select></div>
     </div>
     <div class="form-row">
       <div class="fg" style="flex:2"><label>곡명 *</label><input id="sm-title" placeholder="찬양 제목"></div>
@@ -1402,7 +1402,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
             <div class="week-label" id="att-month-label" style="min-width:100px;text-align:center;"></div>
             <button class="week-btn" onclick="changeMonth(1)">▶</button>
           </div>
-          <select id="att-type" style="width:76px;font-size:12px;padding:5px 7px;" onchange="renderCalendar()"><option>연습</option></select>
+          <select id="att-type" style="width:76px;font-size:12px;padding:5px 7px;" onchange="onAttTypeChange()"><option>연습</option><option>예배</option></select>
         </div>
         <div id="att-calendar"></div>
       </div>
@@ -1476,7 +1476,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
         <div class="card-header"><div class="card-title">셋리스트 작성</div></div>
         <div class="form-row">
           <div class="fg"><label>날짜</label><input type="date" id="sl-date"></div>
-          <div class="fg"><label>구분</label><select id="sl-type"><option>연습</option></select></div>
+          <div class="fg"><label>구분</label><select id="sl-type"><option>연습</option><option>예배</option></select></div>
         </div>
         <div class="form-row"><div class="fg"><label>예배 제목</label><input id="sl-wtitle" placeholder="2025년 7월 셋째주 주일예배"></div></div>
         <div id="sl-song-list" style="margin-bottom:12px;flex:1;"></div>
@@ -1910,14 +1910,24 @@ function go(p,el){
   };
   document.getElementById('tb-actions').innerHTML=acts[p]||'';
   closeSidebar();
-  if(p==='dashboard'){ loadAllFromSupabase().then(renderDashboard); renderDashboard(); }
-  else if(p==='members'){ loadAllFromSupabase().then(renderMembers); renderMembers(); }
-  else if(p==='attendance'){ loadAllFromSupabase().then(renderCalendar); renderCalendar(); }
-  else if(p==='songs'){ loadAllFromSupabase().then(renderSongs); renderSongs(); }
-  else if(p==='setlist'){ loadAllFromSupabase().then(renderSetlistPage); renderSetlistPage(); }
+  if(p==='dashboard'){ renderDashboard(); loadAllFromSupabase().then(renderDashboard); }
+  else if(p==='members'){ renderMembers(); loadAllFromSupabase().then(renderMembers); }
+  else if(p==='attendance'){
+    renderCalendar();
+    loadAllFromSupabase().then(()=>{
+      renderCalendar();
+      if(selectedAttDate){
+        const type=document.getElementById('att-type')?.value||'연습';
+        renderAttPanel(selectedAttDate,type);
+        renderAttBadges();
+      }
+    });
+  }
+  else if(p==='songs'){ renderSongs(); loadAllFromSupabase().then(renderSongs); }
+  else if(p==='setlist'){ renderSetlistPage(); loadAllFromSupabase().then(renderSetlistPage); }
   else if(p==='prayer'){populateMemberSelects();loadPrayers();}
   else if(p==='suggestions'){populateMemberSelects();loadSuggestions();}
-  else if(p==='stats'){ loadAllFromSupabase().then(renderStats); renderStats(); }
+  else if(p==='stats'){ renderStats(); loadAllFromSupabase().then(renderStats); }
   else if(p==='backup')renderBackup();
 }
 
@@ -2138,6 +2148,20 @@ function changeMonth(dir){
   renderCalendar();
 }
 
+// att-type(연습/예배) 변경 시: 달력 재렌더 + 선택된 날짜의 패널/헤더도 갱신
+function onAttTypeChange(){
+  const type = document.getElementById('att-type')?.value || '연습';
+  renderCalendar();
+  if(selectedAttDate){
+    const d = new Date(selectedAttDate+'T00:00:00');
+    const fmtDate = d.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+    const hdr = document.getElementById('att-panel-header');
+    if(hdr) hdr.textContent = `${fmtDate} · ${type}`;
+    renderAttPanel(selectedAttDate, type);
+    renderAttBadges();
+  }
+}
+
 function renderCalendar(){
   const type = document.getElementById('att-type')?.value || '연습';
   const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
@@ -2331,7 +2355,12 @@ async function setAvail(mid, avail, key){
   // 같은 값 클릭 시 토글
   const newAvail = cur.avail===avail ? 'unknown' : avail;
   S.attendance[key][mid] = {...cur, avail:newAvail, avail_reason: newAvail==='yes'?'':cur.avail_reason||''};
+  // 로컬 먼저 저장 (즉시 반영)
   saveLocalCache();
+  const type=document.getElementById('att-type')?.value||'연습';
+  renderAttPanel(selectedAttDate, type);
+  renderAttBadges();
+  // Supabase 비동기 동기화
   try {
     await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
@@ -2340,10 +2369,7 @@ async function setAvail(mid, avail, key){
       avail: newAvail,
       avail_reason: newAvail==='yes'?'':cur.avail_reason||''
     }],{onConflict:'att_key,member_id'});
-  } catch(e){ console.error('setAvail 오류:',e); }
-  const type=document.getElementById('att-type')?.value||'연습';
-  renderAttPanel(selectedAttDate, type);
-  renderAttBadges();
+  } catch(e){ console.error('setAvail Supabase 오류:',e); }
 }
 
 async function saveDirectReason(mid, key, value){
@@ -2351,7 +2377,9 @@ async function saveDirectReason(mid, key, value){
   if(!S.attendance[key]) S.attendance[key]={};
   const cur = S.attendance[key][mid]||{};
   S.attendance[key][mid] = {...cur, avail_reason: value.trim()};
+  // 로컬 먼저 저장
   saveLocalCache();
+  // Supabase 비동기 동기화
   try {
     await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
@@ -2360,7 +2388,7 @@ async function saveDirectReason(mid, key, value){
       avail: cur.avail||'no',
       avail_reason: value.trim()
     }],{onConflict:'att_key,member_id'});
-  } catch(e){ console.error('saveDirectReason 오류:',e); }
+  } catch(e){ console.error('saveDirectReason Supabase 오류:',e); }
 }
 
 async function setAvailReason(mid, key, value){
@@ -2374,7 +2402,11 @@ async function setAvailReason(mid, key, value){
     return;
   }
   S.attendance[key][mid] = {...cur, avail_reason: value};
+  // 로컬 먼저 저장
   saveLocalCache();
+  const type=document.getElementById('att-type')?.value||'연습';
+  renderAttPanel(selectedAttDate, type);
+  // Supabase 비동기 동기화
   try {
     await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
@@ -2383,9 +2415,7 @@ async function setAvailReason(mid, key, value){
       avail: cur.avail||'no',
       avail_reason: value
     }],{onConflict:'att_key,member_id'});
-  } catch(e){ console.error('setAvailReason 오류:',e); }
-  const type=document.getElementById('att-type')?.value||'연습';
-  renderAttPanel(selectedAttDate, type);
+  } catch(e){ console.error('setAvailReason Supabase 오류:',e); }
 }
 
 async function setAtt(mid,status,key){
@@ -2394,27 +2424,36 @@ async function setAtt(mid,status,key){
   const cur=S.attendance[key][mid]||{};
   const newStatus = cur.status===status ? null : status;
   S.attendance[key][mid]={...cur, status:newStatus};
-  try{ await sb.from('attendance').upsert([{
-    att_key:key, member_id:mid, status:newStatus,
-    note:cur.note||'', avail:cur.avail||'unknown', avail_reason:cur.avail_reason||''
-  }],{onConflict:'att_key,member_id'}); }catch(e){}
+  // 로컬 먼저 저장 (Supabase 결과와 무관하게 즉시 반영)
   saveLocalCache();
   const type=document.getElementById('att-type')?.value||'연습';
   renderAttPanel(selectedAttDate, type);
-  renderAttBadges(); updateCalDots();
+  renderAttBadges();
+  updateCalDots();
+  // Supabase 비동기 동기화
+  try{
+    await sb.from('attendance').upsert([{
+      att_key:key, member_id:mid, status:newStatus,
+      note:cur.note||'', avail:cur.avail||'unknown', avail_reason:cur.avail_reason||''
+    }],{onConflict:'att_key,member_id'});
+  }catch(e){ console.error('setAtt Supabase 오류:', e); }
 }
 async function setAttNote(mid,key,note){
   if(!S.attendance[key])S.attendance[key]={};
   if(!S.attendance[key][mid])S.attendance[key][mid]={};
   S.attendance[key][mid].note=note;
+  // 로컬 먼저 저장
   saveLocalCache();
-  try{ await sb.from('attendance').upsert([{
-    att_key:key, member_id:mid,
-    status:S.attendance[key][mid].status||null,
-    note,
-    avail:S.attendance[key][mid].avail||'unknown',
-    avail_reason:S.attendance[key][mid].avail_reason||''
-  }],{onConflict:'att_key,member_id'}); }catch(e){}
+  // Supabase 비동기 동기화
+  try{
+    await sb.from('attendance').upsert([{
+      att_key:key, member_id:mid,
+      status:S.attendance[key][mid].status||null,
+      note,
+      avail:S.attendance[key][mid].avail||'unknown',
+      avail_reason:S.attendance[key][mid].avail_reason||''
+    }],{onConflict:'att_key,member_id'});
+  }catch(e){ console.error('setAttNote Supabase 오류:',e); }
 }
 function renderAttBadges(){
   if(!selectedAttDate){document.getElementById('att-badges').innerHTML='';return;}
@@ -2770,7 +2809,10 @@ async function loadPrayers(){
       answeredAt:p.answered_at?fmt(new Date(p.answered_at)):''
     }));
     saveLocalCache();
-  } catch(e){ console.error('기도제목 로드 오류:',e); }
+  } catch(e){
+    console.error('기도제목 로드 오류:',e);
+    // 오류 시 기존 S.prayers 유지 (로컬 캐시 그대로)
+  }
   renderPrayers();
 }
 async function loadSuggestions(){
@@ -2783,7 +2825,10 @@ async function loadSuggestions(){
       createdAt:s.created_at?fmt(new Date(s.created_at)):''
     }));
     saveLocalCache();
-  } catch(e){ console.error('건의사항 로드 오류:',e); }
+  } catch(e){
+    console.error('건의사항 로드 오류:',e);
+    // 오류 시 기존 S.suggestions 유지
+  }
   renderSuggestions();
 }
 
@@ -2853,21 +2898,27 @@ async function savePrayer(){
     title, author,
     cat:document.getElementById('pm-cat').value,
     body:document.getElementById('pm-body').value.trim(),
-    status:'active', answer:'',
-    created_at:new Date().toISOString()
+    status:'active',
+    answer:''
+    // created_at은 Supabase DEFAULT now() 사용 — 앱에서 넣지 않음
   };
+  let saved=false;
   try {
     const {data,error}=await sb.from('prayers').insert([prayer]).select();
     if(error) throw error;
-    // 로컬에도 저장
-    S.prayers.unshift({...prayer, id:data[0].id, createdAt:fmt(new Date()), answeredAt:''});
+    S.prayers.unshift({...prayer, id:data[0].id, createdAt:fmt(new Date(data[0].created_at||new Date())), answeredAt:''});
+    saved=true;
   } catch(e){
-    // Supabase 실패시 로컬 저장
+    console.error('기도제목 Supabase 저장 오류:', e);
+    // 오프라인/RLS 오류 시 로컬에만 저장
     S.prayers.unshift({id:uid(),title,author,cat:prayer.cat,body:prayer.body,status:'active',answer:'',createdAt:fmt(new Date()),answeredAt:''});
   }
-  document.getElementById('pm-title').value='';document.getElementById('pm-body').value='';
+  saveLocalCache();
+  document.getElementById('pm-title').value='';
+  document.getElementById('pm-body').value='';
   closeModal('prayer-modal');
-  await loadPrayers(); // Supabase에서 최신 목록 다시 로드
+  // Supabase에서 최신 목록 다시 로드
+  await loadPrayers();
 }
 function openAnswerModal(id){
   document.getElementById('ans-prayer-id').value=id;
@@ -2946,19 +2997,22 @@ async function saveSuggestion(){
   const sug={
     author, cat:document.getElementById('sgm-cat').value,
     title:document.getElementById('sgm-title').value.trim(),
-    body, status:'pending',
-    created_at:new Date().toISOString()
+    body, status:'pending'
+    // created_at은 Supabase DEFAULT now() 사용 — 앱에서 넣지 않음
   };
   try {
     const {data,error}=await sb.from('suggestions').insert([sug]).select();
     if(error) throw error;
-    S.suggestions.push({...sug, id:data[0].id, createdAt:fmt(new Date())});
+    S.suggestions.push({...sug, id:data[0].id, createdAt:fmt(new Date(data[0].created_at||new Date()))});
   } catch(e){
+    console.error('건의사항 Supabase 저장 오류:', e);
+    // 오프라인/RLS 오류 시 로컬에만 저장
     S.suggestions.push({id:uid(),...sug,createdAt:fmt(new Date())});
   }
+  saveLocalCache();
   ['sgm-title','sgm-body'].forEach(i=>document.getElementById(i).value='');
   closeModal('sug-modal');
-  await loadSuggestions(); // Supabase에서 최신 목록 다시 로드
+  await loadSuggestions();
 }
 async function cycleSug(id){
   const s=S.suggestions.find(x=>x.id===id);if(!s)return;
