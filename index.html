@@ -2192,7 +2192,8 @@ function renderCalendar(){
     if(isSelected) cls+=' selected';
     if(hasRecord&&d.cur) cls+=' has-record';
     const isWeekendCur = isWeekend && d.cur;
-    if(isWeekendCur){
+    // 과거/미래 날짜 제한 없음 — 이전달·다음달 overflow 날짜도 클릭 가능
+    if(isWeekend){
       html+=`<div class="${cls}" data-date="${d.date}" onclick="selectAttDate('${d.date}')"><span>${d.day}</span></div>`;
     } else {
       html+=`<div class="${cls}"><span>${d.day}</span></div>`;
@@ -2229,17 +2230,24 @@ function updateCalDots(){
 }
 function selectAttDate(date){
   selectedAttDate=date;
-  document.querySelectorAll('.cal-cell').forEach(c=>c.classList.remove('selected'));
-  const target=document.querySelector(`.cal-cell[data-date="${date}"]`);
-  if(target) target.classList.add('selected');
+  // 클릭한 날짜가 현재 달력의 달과 다르면 해당 달로 자동 이동
+  const d = new Date(date+'T00:00:00');
+  const clickedYear = d.getFullYear();
+  const clickedMonth = d.getMonth();
+  if(clickedYear !== calYear || clickedMonth !== calMonth){
+    calYear = clickedYear;
+    calMonth = clickedMonth;
+  }
   const type=document.getElementById('att-type')?.value||'연습';
-  const fmtDate=new Date(date+'T00:00:00').toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+  const fmtDate=d.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
   const hdr=document.getElementById('att-panel-header');
   if(hdr) hdr.textContent=`${fmtDate} · ${type}`;
   document.getElementById('att-select-hint').style.display='none';
   document.getElementById('att-panel').style.display='block';
   renderAttPanel(date, type);
   renderAttBadges();
+  // 달이 바뀐 경우 달력 다시 그리기 (선택 상태 포함)
+  renderCalendar();
 }
 
 function attKeyFor(date, type){ return date+'_'+type; }
