@@ -1899,12 +1899,21 @@ function applyRole(){
 ════════════════════════════ */
 const TITLES={dashboard:'대시보드',members:'팀원 관리',attendance:'출석 관리',songs:'곡 관리',setlist:'셋리스트',prayer:'기도제목',suggestions:'건의사항',stats:'통계',backup:'백업/복원'};
 function go(p,el){
+  // 페이지 이동 전 debounce 중인 저장 즉시 실행 (데이터 유실 방지)
+  Object.keys(_debounceTimers).forEach(k=>{
+    clearTimeout(_debounceTimers[k]);
+    delete _debounceTimers[k];
+  });
+  // 현재 출석 패널에 포커스된 입력창 강제 blur → onblur 저장 트리거
+  if(document.activeElement && document.activeElement.tagName==='INPUT'){
+    document.activeElement.blur();
+  }
+
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el) el.classList.add('active');
   document.getElementById('pg-title').textContent=TITLES[p]||p;
-  // topbar actions
   const acts={
     members: currentRole==='leader' ? '<button class="btn btn-primary" onclick="openAddMember()">+ 팀원 추가</button>' : '',
     songs:   currentRole==='leader' ? '<button class="btn btn-primary" onclick="openAddSong()">+ 곡 추가</button>'   : '',
@@ -2307,8 +2316,9 @@ function renderAttPanel(date, type){
     const st = a.status||'none';
     const avail = a.avail||'unknown';
     const reason = a.avail_reason||'';
+    // __direct__ 임시값이거나, REASONS에 없는 직접입력 값인 경우
     const isDirectMode = reason==='__direct__';
-    const isDirect = isDirectMode || (reason && !REASONS.includes(reason) && reason!=='__direct__');
+    const isDirect = isDirectMode || (reason && !REASONS.includes(reason));
     const directValue = isDirectMode ? '' : (isDirect ? reason : '');
 
     // 참여 여부 버튼 (팀원+리더 모두)
@@ -2335,12 +2345,16 @@ function renderAttPanel(date, type){
           ${REASONS.map(r=>`<option value="${r}" ${reason===r?'selected':''}>${r}</option>`).join('')}
           <option value="__direct__" ${isDirect?'selected':''}>직접 입력</option>
         </select>
-        ${isDirect?`<input type="text" value="${directValue}" placeholder="사유를 직접 입력하세요"
+        ${isDirect?`<input type="text"
+          id="reason-input-${m.id}"
+          value="${directValue.replace(/"/g,'&quot;')}"
+          placeholder="사유를 직접 입력하세요"
           style="font-size:12px;padding:5px 8px;"
-          onchange="saveDirectReason('${m.id}','${key}',this.value)">` : ''}
+          oninput="debounceSaveReason('${m.id}','${key}',this.value)"
+          onblur="saveDirectReason('${m.id}','${key}',this.value)">` : ''}
       </div>` : `<span style="font-size:12px;color:var(--ink5);">—</span>`;
 
-    // 출석 체크 — 리더: ✅❌⏰ 전체 / 팀원: ⏰ 지각만
+    // 출석 체크 — 리더: ✅❌ / 팀원: 읽기 전용
     const attCell = isLeader
       ? `<div style="display:flex;gap:5px;">
           <span class="att-btn ${st==='present'?'present':''}" onclick="setAtt('${m.id}','present','${key}')">✅</span>
@@ -2348,10 +2362,11 @@ function renderAttPanel(date, type){
          </div>`
       : `<span style="font-size:16px;">${st==='present'?'✅':st==='absent'?'❌':'—'}</span>`;
 
-    // 메모 (팀원+리더 모두 입력 가능)
-    const noteCell = `<input type="text" value="${a.note||''}" placeholder="메모"
+    // 메모 — oninput 실시간 + onblur 최종 저장
+    const noteCell = `<input type="text" value="${(a.note||'').replace(/"/g,'&quot;')}" placeholder="메모"
         style="font-size:12px;padding:6px 10px;"
-        onchange="setAttNote('${m.id}','${key}',this.value)">`;
+        oninput="debounceSaveNote('${m.id}','${key}',this.value)"
+        onblur="setAttNote('${m.id}','${key}',this.value)">`;
 
     return`<tr>
       <td style="font-family:var(--serif);font-size:14px;word-break:keep-all;overflow-wrap:break-word;max-width:80px;">${m.name}</td>
@@ -2367,41 +2382,65 @@ function renderAttPanel(date, type){
 async function setAvail(mid, avail, key){
   if(!S.attendance[key]) S.attendance[key]={};
   const cur = S.attendance[key][mid]||{};
-  // 같은 값 클릭 시 토글
-  const newAvail = cur.avail===avail ? 'unknown' : avail;
-  S.attendance[key][mid] = {...cur, avail:newAvail, avail_reason: newAvail==='yes'?'':cur.avail_reason||''};
-  // 로컬 먼저 저장 (즉시 반영)
+  // 같은 값 클릭 시 → 토글 없이 그냥 유지 (실수로 두 번 눌러도 리셋 안 됨)
+  if(cur.avail === avail) return;
+  // 가능으로 바꿀 때만 reason 초기화, 불가→불가 유지 시엔 reason 보존
+  const newReason = avail==='yes' ? '' : (cur.avail_reason||'');
+  S.attendance[key][mid] = {...cur, avail, avail_reason: newReason};
   saveLocalCache();
   const type=document.getElementById('att-type')?.value||'연습';
   renderAttPanel(selectedAttDate, type);
   renderAttBadges();
-  // Supabase 비동기 동기화
   try {
     await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
       status: cur.status||null,
       note: cur.note||'',
-      avail: newAvail,
-      avail_reason: newAvail==='yes'?'':cur.avail_reason||''
+      avail,
+      avail_reason: newReason
     }],{onConflict:'att_key,member_id'});
   } catch(e){ console.error('setAvail Supabase 오류:',e); }
 }
 
+// debounce 타이머 저장소
+const _debounceTimers = {};
+
+// 직접 입력 사유 debounce (300ms 후 저장 — 타이핑 중엔 저장 안 함)
+function debounceSaveReason(mid, key, value){
+  const timerKey = `reason_${mid}_${key}`;
+  clearTimeout(_debounceTimers[timerKey]);
+  _debounceTimers[timerKey] = setTimeout(()=>{
+    saveDirectReason(mid, key, value);
+  }, 300);
+}
+
+// 메모 debounce (500ms 후 저장)
+function debounceSaveNote(mid, key, value){
+  const timerKey = `note_${mid}_${key}`;
+  clearTimeout(_debounceTimers[timerKey]);
+  _debounceTimers[timerKey] = setTimeout(()=>{
+    setAttNote(mid, key, value);
+  }, 500);
+}
+
 async function saveDirectReason(mid, key, value){
-  if(!value.trim()) return;
   if(!S.attendance[key]) S.attendance[key]={};
   const cur = S.attendance[key][mid]||{};
-  S.attendance[key][mid] = {...cur, avail_reason: value.trim()};
-  // 로컬 먼저 저장
+  const trimmed = value.trim();
+  // 빈 값이면 __direct__ 임시값으로 되돌림 (입력 중 상태 유지)
+  if(!trimmed){
+    S.attendance[key][mid] = {...cur, avail_reason: '__direct__'};
+    return;
+  }
+  S.attendance[key][mid] = {...cur, avail_reason: trimmed};
   saveLocalCache();
-  // Supabase 비동기 동기화
   try {
     await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
       status: cur.status||null,
       note: cur.note||'',
       avail: cur.avail||'no',
-      avail_reason: value.trim()
+      avail_reason: trimmed
     }],{onConflict:'att_key,member_id'});
   } catch(e){ console.error('saveDirectReason Supabase 오류:',e); }
 }
@@ -2409,19 +2448,28 @@ async function saveDirectReason(mid, key, value){
 async function setAvailReason(mid, key, value){
   if(!S.attendance[key]) S.attendance[key]={};
   const cur = S.attendance[key][mid]||{};
-  // '직접 입력' 선택 시 — 입력란 표시를 위해 임시값 저장 후 재렌더
+
+  // 빈값(사유 선택 안 함) → 저장 안 함, UI만 유지
+  if(value==='') return;
+
+  // '직접 입력' 선택 시 → 임시값으로 재렌더만 (저장 X)
   if(value==='__direct__'){
     S.attendance[key][mid] = {...cur, avail_reason: '__direct__'};
     const type=document.getElementById('att-type')?.value||'연습';
     renderAttPanel(selectedAttDate, type);
+    // 재렌더 후 커서를 입력창에 자동 포커스
+    setTimeout(()=>{
+      const inp = document.getElementById(`reason-input-${mid}`);
+      if(inp) inp.focus();
+    }, 50);
     return;
   }
+
+  // 실제 사유 선택 시 → 저장
   S.attendance[key][mid] = {...cur, avail_reason: value};
-  // 로컬 먼저 저장
   saveLocalCache();
   const type=document.getElementById('att-type')?.value||'연습';
   renderAttPanel(selectedAttDate, type);
-  // Supabase 비동기 동기화
   try {
     await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
@@ -2456,17 +2504,18 @@ async function setAtt(mid,status,key){
 async function setAttNote(mid,key,note){
   if(!S.attendance[key])S.attendance[key]={};
   if(!S.attendance[key][mid])S.attendance[key][mid]={};
-  S.attendance[key][mid].note=note;
-  // 로컬 먼저 저장
+  const cur = S.attendance[key][mid];
+  // 동일한 값이면 저장 스킵
+  if(cur.note === note) return;
+  cur.note = note;
   saveLocalCache();
-  // Supabase 비동기 동기화
   try{
     await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
-      status:S.attendance[key][mid].status||null,
+      status: cur.status||null,
       note,
-      avail:S.attendance[key][mid].avail||'unknown',
-      avail_reason:S.attendance[key][mid].avail_reason||''
+      avail: cur.avail||'unknown',
+      avail_reason: cur.avail_reason||''
     }],{onConflict:'att_key,member_id'});
   }catch(e){ console.error('setAttNote Supabase 오류:',e); }
 }
