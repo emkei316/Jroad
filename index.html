@@ -1361,6 +1361,7 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
       <div class="card"><div class="card-header"><div class="card-title">최근 출석 현황</div><div class="card-sub" id="dash-att-sub"></div></div><div id="dash-att-list"></div></div>
       <div class="card"><div class="card-header"><div class="card-title">최근 사용 찬양</div><div class="card-sub">최근 5곡</div></div><div id="dash-song-list"></div></div>
     </div>
+    <div class="card mb24"><div class="card-header"><div class="card-title">📋 불참 예정 현황</div><div class="card-sub">오늘 이후</div></div><div id="dash-absent-list"></div></div>
     <div class="g2">
       <div class="card"><div class="card-header"><div class="card-title">파트별 구성</div></div><div id="dash-parts"></div></div>
       <div class="card"><div class="card-header"><div class="card-title">이번 달 생일 🎂</div></div><div id="dash-bday"></div></div>
@@ -2017,11 +2018,58 @@ function renderDashboard(){
     const r=S.attendance[lk]||{};
     Object.values(r).forEach(v=>{if(v.status==='present')lp++;else if(v.status==='absent')la++;});
   }
+
+  // 오늘 이후 날짜 중 avail='no'인 인원 (중복 제거 — 같은 사람이 여러 날짜에 불참 가능)
+  const todayStr = fmt(new Date());
+  const upcomingAbsent = []; // {name, part, date, type, reason}
+  Object.entries(S.attendance)
+    .filter(([k])=>k.slice(0,10)>=todayStr)
+    .sort(([a],[b])=>a.slice(0,10).localeCompare(b.slice(0,10)))
+    .forEach(([key,rec])=>{
+      const dateStr=key.slice(0,10);
+      const typeStr=key.slice(11);
+      Object.entries(rec).forEach(([mid,val])=>{
+        if(val.avail==='no'){
+          const mem=S.members.find(m=>m.id===mid);
+          if(mem) upcomingAbsent.push({name:mem.name, part:mem.part, date:dateStr, type:typeStr, reason:val.avail_reason||''});
+        }
+      });
+    });
+
   document.getElementById('dash-stats').innerHTML=`
     <div class="stat-card"><div class="stat-num">${total}<span class="stat-unit">명</span></div><div class="stat-label">총 팀원</div></div>
     <div class="stat-card"><div class="stat-num">${lp}<span class="stat-unit">명</span></div><div class="stat-label">최근 출석</div><div class="stat-sub">${lk?lk.replace('_',' '):'기록 없음'}</div></div>
     <div class="stat-card"><div class="stat-num">${S.songs.length}<span class="stat-unit">곡</span></div><div class="stat-label">등록된 찬양</div></div>
-    <div class="stat-card"><div class="stat-num">${S.suggestions.filter(s=>s.status==='pending').length}<span class="stat-unit">건</span></div><div class="stat-label">미확인 건의</div></div>`;
+    <div class="stat-card" style="cursor:pointer;" onclick="go('attendance')">
+      <div class="stat-num">${upcomingAbsent.length}<span class="stat-unit">명</span></div>
+      <div class="stat-label">불참 예정</div>
+      <div class="stat-sub">${upcomingAbsent.length?upcomingAbsent[0].date+' 외':'예정 없음'}</div>
+    </div>`;
+  // 불참 예정 현황 카드
+  const absentEl = document.getElementById('dash-absent-list');
+  if(absentEl){
+    if(!upcomingAbsent.length){
+      absentEl.innerHTML='<div class="empty"><div class="empty-title" style="font-size:14px;">불참 예정 팀원 없음 🙌</div></div>';
+    } else {
+      absentEl.innerHTML=upcomingAbsent.map(a=>{
+        const reasonBadge = a.reason && a.reason!=='__direct__'
+          ? `<span class="badge b-muted" style="font-size:10px;">${a.reason}</span>` : '';
+        return`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+          <div style="flex:1;display:flex;align-items:center;gap:8px;">
+            <span style="font-family:var(--serif);font-size:15px;">${a.name}</span>
+            ${partBadge(a.part)}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            ${reasonBadge}
+            <span style="font-size:11px;color:var(--ink4);">${a.date}</span>
+            <span class="badge b-muted" style="font-size:10px;">${a.type}</span>
+          </div>
+          <span style="font-size:14px;">❌</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
   // 출석 현황
   const attEl=document.getElementById('dash-att-list');
   document.getElementById('dash-att-sub').textContent=lk?lk.replace('_',' '):'';
