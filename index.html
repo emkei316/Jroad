@@ -1686,23 +1686,49 @@ async function loadAllFromSupabase(){
       sb.from('songs').select('*').order('created_at'),
       sb.from('setlists').select('*').order('created_at', {ascending:false})
     ]);
-    if(mRes.data)  S.members   = mRes.data;
-    if(aRes.data){
-      S.attendance = {};
+    if(mRes.data && !mRes.error)  S.members = mRes.data;
+    if(aRes.data && !aRes.error){
+      // Supabase 데이터를 기준으로 하되, 로컬에만 있는 데이터(아직 동기화 안 된)는 유지
+      const remoteAtt = {};
       aRes.data.forEach(r=>{
-        if(!S.attendance[r.att_key]) S.attendance[r.att_key]={};
-        S.attendance[r.att_key][r.member_id]={
-          status:r.status, note:r.note||'',
-          avail:r.avail||'unknown', avail_reason:r.avail_reason||''
+        if(!remoteAtt[r.att_key]) remoteAtt[r.att_key]={};
+        remoteAtt[r.att_key][r.member_id]={
+          status: r.status||null,
+          note: r.note||'',
+          avail: r.avail||'unknown',
+          avail_reason: r.avail_reason||''
         };
       });
+      // 로컬 S.attendance와 merge: 로컬이 더 최신이면 로컬 우선
+      // (각 항목별로 로컬 값이 있으면 유지, 없으면 remote 사용)
+      const merged = {...remoteAtt};
+      Object.entries(S.attendance).forEach(([key, rec])=>{
+        if(!merged[key]) merged[key] = {};
+        Object.entries(rec).forEach(([mid, val])=>{
+          // 로컬에 있는 값이 remote와 다를 때: 로컬 우선 (방금 저장한 값)
+          if(!merged[key][mid]){
+            merged[key][mid] = val;
+          } else {
+            // avail/avail_reason은 로컬 우선 (가장 최근 사용자 입력)
+            merged[key][mid] = {
+              ...merged[key][mid],
+              avail: val.avail !== undefined ? val.avail : merged[key][mid].avail,
+              avail_reason: val.avail_reason !== undefined ? val.avail_reason : merged[key][mid].avail_reason,
+              // status, note는 remote 우선 (리더가 체크한 값)
+              status: merged[key][mid].status || val.status,
+              note: merged[key][mid].note || val.note
+            };
+          }
+        });
+      });
+      S.attendance = merged;
     }
-    if(sRes.data)  S.songs     = sRes.data;
-    if(slRes.data) S.setlists  = slRes.data.map(sl=>({...sl, songs: sl.songs||[]}));
+    if(sRes.data && !sRes.error)  S.songs = sRes.data;
+    if(slRes.data && !slRes.error) S.setlists = slRes.data.map(sl=>({...sl, songs: sl.songs||[]}));
     saveLocalCache();
   } catch(e){
     console.error('Supabase 로드 오류:', e);
-    loadLocalCache();
+    // 오류 시 로컬 캐시 유지 (덮어쓰지 않음)
   }
 }
 
@@ -2369,21 +2395,19 @@ function renderAttPanel(date, type){
     const isDirect = isDirectMode || (reason && !REASONS.includes(reason));
     const directValue = isDirectMode ? '' : (isDirect ? reason : '');
 
-    // 참여 여부 버튼 (팀원+리더 모두) — 선택된 버튼 재클릭 시 취소
+    // 참여 여부 버튼 (팀원+리더 모두)
     const availCell = `
       <div style="display:flex;gap:5px;flex-wrap:wrap;">
         <button onclick="setAvail('${m.id}','yes','${key}')"
-          title="${avail==='yes'?'클릭하면 취소':'참여 가능'}"
-          style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s;
+          style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;font-family:var(--sans);
           background:${avail==='yes'?'rgba(94,161,94,0.15)':'transparent'};
           color:${avail==='yes'?'#4a8c4a':'var(--ink5)'};
-          border-color:${avail==='yes'?'rgba(94,161,94,0.4)':'var(--border)'};">✅ 가능${avail==='yes'?' ✕':''}</button>
+          border-color:${avail==='yes'?'rgba(94,161,94,0.4)':'var(--border)'};">✅ 가능</button>
         <button onclick="setAvail('${m.id}','no','${key}')"
-          title="${avail==='no'?'클릭하면 취소':'참여 불가'}"
-          style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s;
+          style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;font-family:var(--sans);
           background:${avail==='no'?'rgba(180,80,80,0.12)':'transparent'};
           color:${avail==='no'?'#a04040':'var(--ink5)'};
-          border-color:${avail==='no'?'rgba(180,80,80,0.3)':'var(--border)'};">❌ 불가${avail==='no'?' ✕':''}</button>
+          border-color:${avail==='no'?'rgba(180,80,80,0.3)':'var(--border)'};">❌ 불가</button>
       </div>`;
 
     // 불참 사유 (참여 불가 선택 시만)
@@ -2435,24 +2459,30 @@ async function setAvail(mid, avail, key){
 
   // 같은 버튼 재클릭 → unknown으로 취소 (사유도 초기화)
   const newAvail = cur.avail === avail ? 'unknown' : avail;
-  // 가능 선택 or 취소(unknown) 시 reason 초기화, 불가 선택 시 기존 reason 유지
+  // 불가 선택 시 기존 reason 유지, 그 외(가능/취소)는 reason 초기화
   const newReason = newAvail === 'no' ? (cur.avail_reason||'') : '';
 
+  // 1. 로컬 즉시 저장 (UI 즉시 반영 — Supabase 결과 기다리지 않음)
   S.attendance[key][mid] = {...cur, avail: newAvail, avail_reason: newReason};
   saveLocalCache();
+
+  // 2. UI 즉시 갱신
   const type = document.getElementById('att-type')?.value||'연습';
   renderAttPanel(selectedAttDate, type);
   renderAttBadges();
   updateCalDots();
+
+  // 3. Supabase 비동기 동기화 (실패해도 로컬은 이미 저장됨)
   try {
-    await sb.from('attendance').upsert([{
+    const {error} = await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
       status: cur.status||null,
       note: cur.note||'',
       avail: newAvail,
       avail_reason: newReason
     }],{onConflict:'att_key,member_id'});
-  } catch(e){ console.error('setAvail Supabase 오류:',e); }
+    if(error) console.error('setAvail Supabase 오류:', error.message, error.details);
+  } catch(e){ console.error('setAvail 네트워크 오류:', e); }
 }
 
 // debounce 타이머 저장소
@@ -2480,58 +2510,42 @@ async function saveDirectReason(mid, key, value){
   if(!S.attendance[key]) S.attendance[key]={};
   const cur = S.attendance[key][mid]||{};
   const trimmed = value.trim();
-  // 빈 값이면 __direct__ 임시값으로 되돌림 (입력 중 상태 유지)
-  if(!trimmed){
-    S.attendance[key][mid] = {...cur, avail_reason: '__direct__'};
-    return;
-  }
+  if(!trimmed){ S.attendance[key][mid]={...cur,avail_reason:'__direct__'}; return; }
   S.attendance[key][mid] = {...cur, avail_reason: trimmed};
   saveLocalCache();
   try {
-    await sb.from('attendance').upsert([{
+    const {error} = await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
-      status: cur.status||null,
-      note: cur.note||'',
-      avail: cur.avail||'no',
-      avail_reason: trimmed
+      status: cur.status||null, note: cur.note||'',
+      avail: cur.avail||'no', avail_reason: trimmed
     }],{onConflict:'att_key,member_id'});
-  } catch(e){ console.error('saveDirectReason Supabase 오류:',e); }
+    if(error) console.error('saveDirectReason Supabase 오류:', error.message);
+  } catch(e){ console.error('saveDirectReason 네트워크 오류:',e); }
 }
 
 async function setAvailReason(mid, key, value){
   if(!S.attendance[key]) S.attendance[key]={};
   const cur = S.attendance[key][mid]||{};
-
-  // 빈값(사유 선택 안 함) → 저장 안 함, UI만 유지
   if(value==='') return;
-
-  // '직접 입력' 선택 시 → 임시값으로 재렌더만 (저장 X)
   if(value==='__direct__'){
     S.attendance[key][mid] = {...cur, avail_reason: '__direct__'};
     const type=document.getElementById('att-type')?.value||'연습';
     renderAttPanel(selectedAttDate, type);
-    // 재렌더 후 커서를 입력창에 자동 포커스
-    setTimeout(()=>{
-      const inp = document.getElementById(`reason-input-${mid}`);
-      if(inp) inp.focus();
-    }, 50);
+    setTimeout(()=>{ const inp=document.getElementById(`reason-input-${mid}`); if(inp)inp.focus(); },50);
     return;
   }
-
-  // 실제 사유 선택 시 → 저장
   S.attendance[key][mid] = {...cur, avail_reason: value};
   saveLocalCache();
   const type=document.getElementById('att-type')?.value||'연습';
   renderAttPanel(selectedAttDate, type);
   try {
-    await sb.from('attendance').upsert([{
+    const {error} = await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
-      status: cur.status||null,
-      note: cur.note||'',
-      avail: cur.avail||'no',
-      avail_reason: value
+      status: cur.status||null, note: cur.note||'',
+      avail: cur.avail||'no', avail_reason: value
     }],{onConflict:'att_key,member_id'});
-  } catch(e){ console.error('setAvailReason Supabase 오류:',e); }
+    if(error) console.error('setAvailReason Supabase 오류:', error.message);
+  } catch(e){ console.error('setAvailReason 네트워크 오류:',e); }
 }
 
 async function setAtt(mid,status,key){
@@ -3261,8 +3275,9 @@ async function importData(input){
         if(alreadyIn){
           document.getElementById('app').classList.add('show');
           applyRole();
+          // 로컬 캐시로 즉시 표시 후, Supabase 로드 완료 시 재렌더
+          renderDashboard();
           loadAllFromSupabase().then(()=>renderDashboard());
-          renderDashboard(); // 캐시로 즉시 표시
         }
         else{document.getElementById('login-page').classList.add('show');}
       },900);
@@ -3275,6 +3290,21 @@ async function importData(input){
    INIT
 ════════════════════════════ */
 loadLocalCache(); // 오프라인 캐시 먼저 로드
+
+// attendance 테이블 avail 컬럼 존재 여부 확인 (없으면 콘솔 경고)
+(async function checkAttColumns(){
+  try {
+    const {data, error} = await sb.from('attendance').select('avail, avail_reason').limit(1);
+    if(error && error.message && error.message.includes('column')){
+      console.warn(
+        '[J·Road] attendance 테이블에 avail/avail_reason 컬럼이 없습니다.\n' +
+        'Supabase SQL Editor에서 아래 SQL을 실행해 주세요:\n\n' +
+        'ALTER TABLE attendance ADD COLUMN IF NOT EXISTS avail TEXT DEFAULT \'unknown\';\n' +
+        'ALTER TABLE attendance ADD COLUMN IF NOT EXISTS avail_reason TEXT DEFAULT \'\';'
+      );
+    }
+  } catch(e){}
+})();
 // renderCalendar()는 로그인 후 go('attendance') 시점에 호출됨
 /* ════════════════════════════
    PWA 서비스 워커 등록
