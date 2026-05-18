@@ -2369,19 +2369,21 @@ function renderAttPanel(date, type){
     const isDirect = isDirectMode || (reason && !REASONS.includes(reason));
     const directValue = isDirectMode ? '' : (isDirect ? reason : '');
 
-    // 참여 여부 버튼 (팀원+리더 모두)
+    // 참여 여부 버튼 (팀원+리더 모두) — 선택된 버튼 재클릭 시 취소
     const availCell = `
       <div style="display:flex;gap:5px;flex-wrap:wrap;">
         <button onclick="setAvail('${m.id}','yes','${key}')"
-          style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;font-family:var(--sans);
+          title="${avail==='yes'?'클릭하면 취소':'참여 가능'}"
+          style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s;
           background:${avail==='yes'?'rgba(94,161,94,0.15)':'transparent'};
           color:${avail==='yes'?'#4a8c4a':'var(--ink5)'};
-          border-color:${avail==='yes'?'rgba(94,161,94,0.4)':'var(--border)'};">✅ 가능</button>
+          border-color:${avail==='yes'?'rgba(94,161,94,0.4)':'var(--border)'};">✅ 가능${avail==='yes'?' ✕':''}</button>
         <button onclick="setAvail('${m.id}','no','${key}')"
-          style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;font-family:var(--sans);
+          title="${avail==='no'?'클릭하면 취소':'참여 불가'}"
+          style="padding:5px 10px;border-radius:4px;border:1px solid var(--border);font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s;
           background:${avail==='no'?'rgba(180,80,80,0.12)':'transparent'};
           color:${avail==='no'?'#a04040':'var(--ink5)'};
-          border-color:${avail==='no'?'rgba(180,80,80,0.3)':'var(--border)'};">❌ 불가</button>
+          border-color:${avail==='no'?'rgba(180,80,80,0.3)':'var(--border)'};">❌ 불가${avail==='no'?' ✕':''}</button>
       </div>`;
 
     // 불참 사유 (참여 불가 선택 시만)
@@ -2430,21 +2432,24 @@ function renderAttPanel(date, type){
 async function setAvail(mid, avail, key){
   if(!S.attendance[key]) S.attendance[key]={};
   const cur = S.attendance[key][mid]||{};
-  // 같은 값 클릭 시 → 토글 없이 그냥 유지 (실수로 두 번 눌러도 리셋 안 됨)
-  if(cur.avail === avail) return;
-  // 가능으로 바꿀 때만 reason 초기화, 불가→불가 유지 시엔 reason 보존
-  const newReason = avail==='yes' ? '' : (cur.avail_reason||'');
-  S.attendance[key][mid] = {...cur, avail, avail_reason: newReason};
+
+  // 같은 버튼 재클릭 → unknown으로 취소 (사유도 초기화)
+  const newAvail = cur.avail === avail ? 'unknown' : avail;
+  // 가능 선택 or 취소(unknown) 시 reason 초기화, 불가 선택 시 기존 reason 유지
+  const newReason = newAvail === 'no' ? (cur.avail_reason||'') : '';
+
+  S.attendance[key][mid] = {...cur, avail: newAvail, avail_reason: newReason};
   saveLocalCache();
-  const type=document.getElementById('att-type')?.value||'연습';
+  const type = document.getElementById('att-type')?.value||'연습';
   renderAttPanel(selectedAttDate, type);
   renderAttBadges();
+  updateCalDots();
   try {
     await sb.from('attendance').upsert([{
       att_key:key, member_id:mid,
       status: cur.status||null,
       note: cur.note||'',
-      avail,
+      avail: newAvail,
       avail_reason: newReason
     }],{onConflict:'att_key,member_id'});
   } catch(e){ console.error('setAvail Supabase 오류:',e); }
