@@ -1051,10 +1051,13 @@ tbody tr:hover td { background: rgba(184,150,90,0.05); }
 .cal-cell.sat { color:#6aabdd; }
 .cal-cell.sun { color:#c06060; }
 .cal-cell.weekend {
+  color: var(--ink);
+}
+.cal-cell.clickable {
   cursor:pointer; background:rgba(184,150,90,0.04);
   border-color:var(--border);
 }
-.cal-cell.weekend:hover { background:var(--gold-dim); border-color:var(--gold2); }
+.cal-cell.clickable:hover { background:var(--gold-dim); border-color:var(--gold2); }
 .cal-cell.selected { background:var(--gold-dim)!important; border-color:var(--gold)!important; font-weight:700; color:var(--ink)!important; }
 .cal-cell.has-record::after {
   content:''; position:absolute; bottom:4px;
@@ -2172,17 +2175,21 @@ function onAttTypeChange(){
 }
 
 function renderCalendar(){
+  // DOM이 없으면 (초기 로드 시) 안전하게 종료
+  const calEl = document.getElementById('att-calendar');
+  const labelEl = document.getElementById('att-month-label');
+  if(!calEl || !labelEl) return;
+
   const type = document.getElementById('att-type')?.value || '연습';
   const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  document.getElementById('att-month-label').textContent = `${calYear}년 ${monthNames[calMonth]}`;
+  labelEl.textContent = `${calYear}년 ${monthNames[calMonth]}`;
 
   const today = fmt(new Date());
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDay  = new Date(calYear, calMonth+1, 0);
-  // 첫 날 요일(0=일,1=월...)
-  let startDow = firstDay.getDay(); // 월요일 시작이면 조정
-  // 월~일 기준으로 그리기
+  const startDow = firstDay.getDay();
   const days = [];
+
   // 이전 달 채우기 (월요일 시작)
   const mondayStart = (startDow === 0) ? 6 : startDow - 1;
   for(let i=mondayStart-1; i>=0; i--){
@@ -2211,54 +2218,53 @@ function renderCalendar(){
     const dt = new Date(d.date+'T00:00:00');
     const dow = dt.getDay(); // 0=일,6=토
     const isSat = dow===6, isSun = dow===0;
-    const isWeekend = isSat||isSun;
     const isToday = d.date===today;
     const isSelected = d.date===selectedAttDate;
     const attKey = d.date+'_'+type;
-    const hasRecord = S.attendance[attKey] && Object.keys(S.attendance[attKey]).length>0;
-    let cls = 'cal-cell';
+    const hasRecord = S.attendance[attKey] && Object.values(S.attendance[attKey]).some(v=>v.status==='present'||v.status==='absent'||v.avail==='yes'||v.avail==='no');
+
+    let cls = 'cal-cell clickable'; // ← 모든 날짜 클릭 가능
     if(!d.cur) cls+=' other-month';
     if(isToday) cls+=' today';
-    if(isSat&&d.cur) cls+=' sat';
-    if(isSun&&d.cur) cls+=' sun';
-    if(isWeekend&&d.cur) cls+=' weekend';
+    if(isSat) cls+=' sat';
+    if(isSun) cls+=' sun';
+    if(isSat||isSun) cls+=' weekend';
     if(isSelected) cls+=' selected';
-    if(hasRecord&&d.cur) cls+=' has-record';
-    const isWeekendCur = isWeekend && d.cur;
-    // 과거/미래 날짜 제한 없음 — 이전달·다음달 overflow 날짜도 클릭 가능
-    if(isWeekend){
-      html+=`<div class="${cls}" data-date="${d.date}" onclick="selectAttDate('${d.date}')"><span>${d.day}</span></div>`;
-    } else {
-      html+=`<div class="${cls}"><span>${d.day}</span></div>`;
-    }
+    if(hasRecord) cls+=' has-record';
+
+    html+=`<div class="${cls}" data-date="${d.date}" onclick="selectAttDate('${d.date}')"><span>${d.day}</span></div>`;
   });
   html += `</div>`;
-  document.getElementById('att-calendar').innerHTML = html;
+  calEl.innerHTML = html;
 
-  // JS maxHeight 강제 제거됨
+  const hintEl = document.getElementById('att-select-hint');
+  const panelEl = document.getElementById('att-panel');
+  const badgesEl = document.getElementById('att-badges');
+  const hdrEl = document.getElementById('att-panel-header');
 
   if(!selectedAttDate){
-    document.getElementById('att-select-hint').style.display='flex';
-    document.getElementById('att-panel').style.display='none';
-    document.getElementById('att-badges').innerHTML='';
-    document.getElementById('att-panel-header').textContent='';
+    if(hintEl) hintEl.style.display='flex';
+    if(panelEl) panelEl.style.display='none';
+    if(badgesEl) badgesEl.innerHTML='';
+    if(hdrEl) hdrEl.textContent='';
   } else {
-    document.getElementById('att-select-hint').style.display='none';
-    document.getElementById('att-panel').style.display='block';
+    if(hintEl) hintEl.style.display='none';
+    if(panelEl) panelEl.style.display='block';
     renderAttPanel(selectedAttDate, type);
     renderAttBadges();
   }
 }
 
 function updateCalDots(){
-  // 캘린더 셀의 has-record 클래스만 갱신 (전체 재렌더 없이)
+  // 모든 클릭 가능 셀의 has-record 클래스 갱신
   const type=document.getElementById('att-type')?.value||'연습';
-  document.querySelectorAll('.cal-cell.weekend').forEach(cell=>{
+  document.querySelectorAll('.cal-cell.clickable').forEach(cell=>{
     const date=cell.getAttribute('data-date');
     if(!date) return;
     const key=attKeyFor(date,type);
-    const hasRecord=S.attendance[key]&&Object.keys(S.attendance[key]).length>0;
-    cell.classList.toggle('has-record', hasRecord);
+    const rec=S.attendance[key];
+    const hasRecord=rec && Object.values(rec).some(v=>v.status==='present'||v.status==='absent'||v.avail==='yes'||v.avail==='no');
+    cell.classList.toggle('has-record', !!hasRecord);
   });
 }
 function selectAttDate(date){
@@ -2471,23 +2477,6 @@ function renderAttBadges(){
   const r=S.attendance[key]||{};let p=0,ab=0,lt=0;
   Object.values(r).forEach(v=>{if(v.status==='present')p++;else if(v.status==='absent')ab++;else if(v.status==='late')lt++;});
   document.getElementById('att-badges').innerHTML=`<span class="badge b-green">✅ ${p}</span><span class="badge b-red">❌ ${ab}</span>`;
-}
-// 하위호환 — attRate는 기존 key 구조 그대로 사용
-function attRate(mid){
-  const keys=Object.keys(S.attendance);
-  if(!keys.length) return 0;
-  let present=0, total=0;
-  keys.forEach(k=>{
-    const rec=S.attendance[k];
-    // 이 날 출석체크가 1명이라도 실제로 이뤄진 날만 분모에 포함
-    // → 출석 기록이 없는 팀원은 그 날 결석으로 처리 (공정한 비교)
-    const hasAnyStatus=Object.values(rec).some(v=>v.status==='present'||v.status==='absent');
-    if(!hasAnyStatus) return;
-    total++;
-    const a=rec[mid];
-    if(a && a.status==='present') present++;
-  });
-  return total ? Math.round(present/total*100) : 0;
 }
 
 /* ════════════════════════════
@@ -3184,7 +3173,7 @@ async function importData(input){
    INIT
 ════════════════════════════ */
 loadLocalCache(); // 오프라인 캐시 먼저 로드
-renderCalendar();
+// renderCalendar()는 로그인 후 go('attendance') 시점에 호출됨
 /* ════════════════════════════
    PWA 서비스 워커 등록
 ════════════════════════════ */
